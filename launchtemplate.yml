@@ -1,0 +1,213 @@
+AWSTemplateFormatVersion: 
+  "2010-09-09"
+Description:
+  Amazon Web Services Network & server construction from the basics
+  
+Metadata:
+  # コンソールでパラメータをグループ化およびソートする方法を定義するメタデータキー
+  "AWS::CloudFormation::Interface":
+    # パラメーターグループとそのグループに含めるパラメーターの定義
+    ParameterGroups: 
+      # Project名に関するグループ
+      - Label: 
+          default: "Project Name Prefix"
+        Parameters: 
+          - PJPrefix
+      # ネットワーク設定に関するグループ
+      - Label: 
+          default: "Network Configuration"
+        # 記述された順番に表示される
+        Parameters: 
+          - KeyName
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------# 
+Parameters:
+  PJPrefix:
+    Type: String
+  KeyName:
+    Type: "AWS::EC2::KeyPair::KeyName"
+  
+Resources: 
+# ------------------------------------------------------------#
+#  VPC
+# ------------------------------------------------------------#
+# VPC Create
+  VPC: 
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      # VPC に対して DNS 解決がサポートされているか
+      EnableDnsSupport: "true"
+      # VPC 内に起動されるインスタンスが DNS ホスト名を取得するか
+      EnableDnsHostnames: "true"
+      # VPC 内に起動されるインスタンスの許可されているテナンシー
+      InstanceTenancy: default
+      Tags: 
+        - Key: Name
+          Value: !Sub "${PJPrefix}-vpc"
+
+# InternetGateway Create
+  InternetGateway: 
+    Type: "AWS::EC2::InternetGateway"
+    Properties: 
+      Tags: 
+        - Key: Name
+          Value: !Sub "${PJPrefix}-igw"
+
+# IGW Attach
+  InternetGatewayAttachment: 
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC 
+
+# ------------------------------------------------------------#
+#  Subnet
+# ------------------------------------------------------------#          
+# Public Subnet Create
+  PublicSubnet: 
+    Type: "AWS::EC2::Subnet"
+    Properties: 
+      AvailabilityZone: "ap-northeast-1a"
+      CidrBlock:  "10.0.0.0/24"
+      VpcId: !Ref VPC 
+      Tags: 
+        - Key: Name
+          Value: !Sub "${PJPrefix}-public-subnet"
+                    
+# ------------------------------------------------------------#
+#  RouteTable
+# ------------------------------------------------------------#          
+# Public RouteTable Create
+  PublicRouteTable: 
+    Type: "AWS::EC2::RouteTable"
+    Properties: 
+      VpcId: !Ref VPC 
+      Tags: 
+        - Key: Name
+          Value: !Sub "${PJPrefix}-public-route"
+
+# ------------------------------------------------------------#
+# Routing
+# ------------------------------------------------------------# 
+# PublicRoute Create
+  PublicRoute: 
+    Type: "AWS::EC2::Route"
+    Properties: 
+      RouteTableId: !Ref PublicRouteTable 
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway 
+
+# ------------------------------------------------------------#
+# RouteTable Associate
+# ------------------------------------------------------------# 
+# PublicRouteTable Associate PublicSubnet
+  PublicSubnetRouteTableAssociation: 
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties: 
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+# ------------------------------------------------------------#
+# EC2
+# ------------------------------------------------------------#
+  Ec2InstanceLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        TagSpecifications:
+        - ResourceType: instance
+          Tags:
+          - Key: Name
+            Value: !Sub "${PJPrefix}-template"
+        UserData:
+          Fn::Base64: |
+               #!/bin/bash
+               sudo yum -y update
+               sudo yum -y install httpd
+               sudo systemctl start httpd.service
+               sudo systemctl enable httpd.service
+
+        InstanceInitiatedShutdownBehavior: terminate
+        KeyName: !Ref KeyName
+        ImageId: ami-00f045aed21a55240
+        Monitoring:
+          Enabled: false
+        CreditSpecification:
+          CpuCredits: standard
+        InstanceType: t2.micro
+        InstanceMarketOptions:
+          SpotOptions:
+            SpotInstanceType: one-time
+            InstanceInterruptionBehavior: terminate
+          MarketType: spot
+        BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp2
+            DeleteOnTermination: true
+        - DeviceName: /dev/xvdf
+          Ebs:
+            VolumeSize: 1
+            VolumeType: gp2
+            DeleteOnTermination: true
+        NetworkInterfaces: 
+        # IPv4 アドレスを割り当てるか
+        - AssociatePublicIpAddress: "true"
+          # ------------------------------------------------------
+          # アタッチの順序におけるネットワークインターフェイスの位置。
+          # ネットワークインターフェイスを指定する場合必須
+          # ------------------------------------------------------
+          DeviceIndex: "0"
+          SubnetId: !Ref PublicSubnet
+          Groups:
+            - !Ref WebServerSG
+
+  # WebServerセキュリティグループ
+  WebServerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: web-sg-cf
+      GroupDescription: web server sg
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        # ssh
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${PJPrefix}-web-server-sg"
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref 'Ec2InstanceLaunchTemplate'
+        Version: !GetAtt 'Ec2InstanceLaunchTemplate.LatestVersionNumber'
+      NetworkInterfaces: 
+        # IPv4 アドレスを割り当てるか
+        - AssociatePublicIpAddress: "true"
+          # ------------------------------------------------------
+          # アタッチの順序におけるネットワークインターフェイスの位置。
+          # ネットワークインターフェイスを指定する場合必須
+          # ------------------------------------------------------
+          DeviceIndex: "0"
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !Ref WebServerSG
+# # # ------------------------------------------------------------#
+# # # Output Parameters
+# # # ------------------------------------------------------------#                
+Outputs:
+  VPC:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${PJPrefix}-vpc"
