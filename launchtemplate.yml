@@ -116,12 +116,13 @@ Resources:
   Ec2InstanceLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
+      LaunchTemplateName: !Sub "${PJPrefix}-web-server-template"
       LaunchTemplateData:
         TagSpecifications:
         - ResourceType: instance
           Tags:
           - Key: Name
-            Value: !Sub "${PJPrefix}-template"
+            Value: !Sub "${PJPrefix}-web-server"
         UserData:
           Fn::Base64: |
                #!/bin/bash
@@ -211,3 +212,15 @@ Outputs:
     Value: !Ref VPC
     Export:
       Name: !Sub "${PJPrefix}-vpc"
+  PublicSubnet:
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub "${PJPrefix}-public-subnet"
+  Ec2InstanceLaunchTemplate:
+    Value: !Ref Ec2InstanceLaunchTemplate
+    Export:
+      Name: !Sub "${PJPrefix}-web-server-template"
+  Ec2Instance:
+    Value: !Ref Ec2Instance
+    Export:
+      Name: !Sub "${PJPrefix}-web-server"
