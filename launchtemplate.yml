@@ -116,9 +116,16 @@ Resources:
   Ec2InstanceLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
+      # 起動テンプレートの名前
       LaunchTemplateName: !Sub "${PJPrefix}-web-server-template"
+      # 起動テンプレートの情報
       LaunchTemplateData:
+        # リソースの作成時にリソースに適用するタグを指定
         TagSpecifications:
+        # ------------------------------------------------------
+        # タグ付けするリソースのタイプ。
+        # 現在、作成中のタグ付けをサポートするリソースタイプは、instance および volume 
+        # ------------------------------------------------------
         - ResourceType: instance
           Tags:
           - Key: Name
@@ -130,31 +137,35 @@ Resources:
                sudo yum -y install httpd
                sudo systemctl start httpd.service
                sudo systemctl enable httpd.service
-
-        InstanceInitiatedShutdownBehavior: terminate
+        # インスタンスからシャットダウンを開始するときに、インスタンスを停止または終了するか
+        # InstanceInitiatedShutdownBehavior: terminate
         KeyName: !Ref KeyName
-        ImageId: ami-00f045aed21a55240
-        Monitoring:
-          Enabled: false
-        CreditSpecification:
-          CpuCredits: standard
+        ImageId: ami-01748a72bed07727c
         InstanceType: t2.micro
-        InstanceMarketOptions:
-          SpotOptions:
-            SpotInstanceType: one-time
-            InstanceInterruptionBehavior: terminate
-          MarketType: spot
-        BlockDeviceMappings:
-        - DeviceName: /dev/xvda
-          Ebs:
-            VolumeSize: 8
-            VolumeType: gp2
-            DeleteOnTermination: true
-        - DeviceName: /dev/xvdf
-          Ebs:
-            VolumeSize: 1
-            VolumeType: gp2
-            DeleteOnTermination: true
+        # # インスタンスのモニタリング
+        # Monitoring:
+        #   Enabled: false
+        # # インスタンスの CPU 使用率に関するクレジットオプション。
+        # CreditSpecification:
+        #   CpuCredits: standard
+        # # インスタンスの市場 (購入) オプション。
+        # InstanceMarketOptions:
+        #   SpotOptions:
+        #     SpotInstanceType: one-time
+        #     InstanceInterruptionBehavior: terminate
+        #   MarketType: spot
+        # # ブロックデバイスマッピング
+        # BlockDeviceMappings:
+        # - DeviceName: /dev/xvda
+        #   Ebs:
+        #     VolumeSize: 8
+        #     VolumeType: gp2
+        #     DeleteOnTermination: true
+        # - DeviceName: /dev/xvdf
+        #   Ebs:
+        #     VolumeSize: 1
+        #     VolumeType: gp2
+        #     DeleteOnTermination: true
         NetworkInterfaces: 
         # IPv4 アドレスを割り当てるか
         - AssociatePublicIpAddress: "true"
@@ -175,7 +186,6 @@ Resources:
       GroupDescription: web server sg
       VpcId: !Ref VPC
       SecurityGroupIngress:
-        # ssh
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
@@ -190,8 +200,11 @@ Resources:
   Ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
+      # 起動テンプレートの設定
       LaunchTemplate:
+        # 起動テンプレートのID
         LaunchTemplateId: !Ref 'Ec2InstanceLaunchTemplate'
+        # 起動テンプレートのバージョン番号
         Version: !GetAtt 'Ec2InstanceLaunchTemplate.LatestVersionNumber'
       NetworkInterfaces: 
         # IPv4 アドレスを割り当てるか
