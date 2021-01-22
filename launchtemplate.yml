@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: 
   "2010-09-09"
 Description:
-  Amazon Web Services Network & server construction from the basics
+  Amazon Web Services LaunchTemplate & Network & server construction
   
 Metadata:
   # コンソールでパラメータをグループ化およびソートする方法を定義するメタデータキー
