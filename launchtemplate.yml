@@ -113,6 +113,7 @@ Resources:
 # ------------------------------------------------------------#
 # EC2
 # ------------------------------------------------------------#
+  # 起動テンプレート
   Ec2InstanceLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -137,35 +138,9 @@ Resources:
                sudo yum -y install httpd
                sudo systemctl start httpd.service
                sudo systemctl enable httpd.service
-        # インスタンスからシャットダウンを開始するときに、インスタンスを停止または終了するか
-        # InstanceInitiatedShutdownBehavior: terminate
         KeyName: !Ref KeyName
         ImageId: ami-01748a72bed07727c
         InstanceType: t2.micro
-        # # インスタンスのモニタリング
-        # Monitoring:
-        #   Enabled: false
-        # # インスタンスの CPU 使用率に関するクレジットオプション。
-        # CreditSpecification:
-        #   CpuCredits: standard
-        # # インスタンスの市場 (購入) オプション。
-        # InstanceMarketOptions:
-        #   SpotOptions:
-        #     SpotInstanceType: one-time
-        #     InstanceInterruptionBehavior: terminate
-        #   MarketType: spot
-        # # ブロックデバイスマッピング
-        # BlockDeviceMappings:
-        # - DeviceName: /dev/xvda
-        #   Ebs:
-        #     VolumeSize: 8
-        #     VolumeType: gp2
-        #     DeleteOnTermination: true
-        # - DeviceName: /dev/xvdf
-        #   Ebs:
-        #     VolumeSize: 1
-        #     VolumeType: gp2
-        #     DeleteOnTermination: true
         NetworkInterfaces: 
         # IPv4 アドレスを割り当てるか
         - AssociatePublicIpAddress: "true"
@@ -197,6 +172,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${PJPrefix}-web-server-sg"
+  # EC2インスタンス
   Ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -217,6 +193,7 @@ Resources:
           SubnetId: !Ref PublicSubnet
           GroupSet:
             - !Ref WebServerSG
+            
 # # # ------------------------------------------------------------#
 # # # Output Parameters
 # # # ------------------------------------------------------------#                
